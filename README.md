@@ -40,8 +40,8 @@ Server: circleci
 File: test_query.sql
 
 SQL Query:
--- This is a test query that returns nothing. mihailo@percolate.com
-select now();
+-- This is a query that returns current time.
+Select now();
 
 +---------------------+
 |        now()        |

@@ -1,2 +1,2 @@
--- This is a test query that returns the current time.
+-- This is a query that returns current time.
 Select now();
