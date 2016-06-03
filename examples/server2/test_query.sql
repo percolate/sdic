@@ -1,2 +1,2 @@
--- This is a query that returns the number one.
+-- This is a query that returns number 1.
 Select 1;
