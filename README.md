@@ -31,7 +31,7 @@ only run one of them, an optional `server` argument can be passed as well:
 
 `sql-data-integrity-checker path/to/your/folder server1`
 
-If a query produces an output, it will look something like:
+If a query produces an output, it will look something like this:
 
 ```bash
 -----===== /!\ INCOMING BAD DATA /!\ =====-----
