@@ -18,7 +18,7 @@ This folder needs to be consisted of:
 
 1. A `servers.ini` file, which contains the Database URL/s (see`examples` folder)
 
-2. A sub-folder, which contains the actual queries in a `.sql` file format.
+1. A sub-folder, which contains the actual queries in a `.sql` file format
 
 ## Usage
 
