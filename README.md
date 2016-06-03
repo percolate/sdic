@@ -13,8 +13,8 @@ or data that should not be in the table that is the object of the query.
 
 ## Configuration
 
-This script reads from a folder whose path you pass in as an argument.
-This folder needs to be consisted of:
+This script reads from a folder, whose path you pass as an argument.
+This folder needs consis of:
 
 1. A `servers.ini` file, which contains the Database URL/s (see`examples` folder)
 
