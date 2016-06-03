@@ -24,9 +24,9 @@ This folder needs consis of:
 
 A `directory` argument is mandatory:
 
-`sql-data-integrity-checker __path/to/your/folder__`
+`sql-data-integrity-checker **path/to/your/folder**`
 
 If you have e.g more than one server in a folder, but you want to
 only run one of them, an optional `server` argument can be passed as well:
 
-`sql-data-integrity-checker path/to/your/folder __server1__`
+`sql-data-integrity-checker path/to/your/folder **server1**`
