@@ -24,9 +24,28 @@ This folder needs consis of:
 
 A `directory` argument is mandatory:
 
-`sql-data-integrity-checker **path/to/your/folder**`
+`sql-data-integrity-checker path/to/your/folder`
 
 If you have e.g more than one server in a folder, but you want to
 only run one of them, an optional `server` argument can be passed as well:
 
-`sql-data-integrity-checker path/to/your/folder **server1**`
+`sql-data-integrity-checker path/to/your/folder server1`
+
+If a query produces an output, it will look something like:
+
+```bash
+-----===== /!\ INCOMING BAD DATA /!\ =====-----
+
+Server: circleci
+File: test_query.sql
+
+SQL Query:
+-- This is a test query that returns nothing. mihailo@percolate.com
+select now();
+
++---------------------+
+|        now()        |
++---------------------+
+| 2016-06-03 19:27:14 |
++---------------------+
+```
