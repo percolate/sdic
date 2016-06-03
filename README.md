@@ -15,8 +15,9 @@ or data that should not be in the table that is the object of the query.
 
 This script reads from a folder whose path you pass in as an argument.
 This folder needs to be consisted of:
-1. A `servers.ini` file, which contains the Database URL/s 
-(see sample file in the `examples` folder)
+
+1. A `servers.ini` file, which contains the Database URL/s (see`examples` folder)
+
 2. A sub-folder, which contains the actual queries in a `.sql` file format.
 
 ## Usage
