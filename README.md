@@ -25,7 +25,7 @@ expensinve to check on every write, or even impossible to write as a
 constraint.
 
 With `sdic`, you can write you complex constraints as simple queries, and have
-the database run them asynchronously at the occurence you want.
+the database run them asynchronously at the occurrence you want.
 
 We call them "soft constraints".
 
@@ -38,8 +38,8 @@ Let's say that you have a `users` table, defined like this:
 - `lastname` `NULL`
 - `email` `NOT NULL`
 
-Now, let's suppose your application allow users to register just with their
-`email` but can fill in they `firstname` and `lastname` later on, but we don't
+Now, let's suppose your application allows users to register just with their
+`email` but can fill in their `firstname` and `lastname` later on, but we don't
 want our users to have only a firstname or a lastname.
 
 Simply put, our constraint is: Make sure every users has either a `firstname`
