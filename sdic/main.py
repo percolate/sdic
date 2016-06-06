@@ -8,6 +8,8 @@ The path to your queries and servers.ini files should be defined as an arg.
 Optionally, declare a single server if you have multiple ones
 in a directory, but want to only run one.
 
+See <https://github.com/percolate/sdic> for more info
+
 Usage:
     sdic <directory> [<server>]
 
