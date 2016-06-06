@@ -9,7 +9,7 @@ test:
 
 clean:
 	rm -rf dist/
-	rm -rf sql_data_integrity_checker.egg-info
+	rm -rf sdic.egg-info
 
 release: clean
 	python setup.py sdist

@@ -1,22 +1,22 @@
-"""Setup file to automate the install of Mackup in the Python environment."""
+"""Setup file to automate the install of sdic in the Python environment."""
 from setuptools import setup
 from sdic.constants import VERSION
 
 
 setup(
-    name='sql-data-integrity-checker',
+    name='sdic',
     version=VERSION,
     author='Laurent Raufaste',
     author_email='analogue@glop.org',
-    url='https://github.com/percolate/sql-data-integrity-checker',
+    url='https://github.com/percolate/sdic',
     description='Asynchronous soft constraints executed against you databases',
-    keywords='sql mysql postgresql sqlalchemy data integrity constraints',
+    keywords='sdic sql mysql postgresql sqlalchemy data integrity constraints',
     license='GPLv3',
     packages=['sdic'],
     install_requires=['docopt', 'prettytable'],
     entry_points={
         'console_scripts': [
-            'sql-data-integrity-checker=sdic.main:main',
+            'sdic=sdic.main:main',
         ],
     },
     classifiers=[

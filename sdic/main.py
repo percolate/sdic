@@ -1,13 +1,17 @@
 #!/usr/bin/env python
-"""sql-data-integrity-checker
+"""sdic
+
+A.K.A. SQL Data Integrity Checker
 
 Asynchronous soft constraints executed against your databases.
 The path to your queries and servers.ini files should be defined as an arg.
 Optionally, declare a single server if you have multiple ones
 in a directory, but want to only run one.
 
+See <https://github.com/percolate/sdic> for more info
+
 Usage:
-    sql_data_integrity_checker <directory> [<server>]
+    sdic <directory> [<server>]
 
 Options:
     -h --help   Show this screen.
@@ -167,7 +171,7 @@ def get_servers_from_config(directory):
 
 def main():
     args = docopt(__doc__,
-                  version="sql-data-integrity-checker {}".format(VERSION))
+                  version="sdic {}".format(VERSION))
 
     # Check that the given directory exists
     if not isdir(args['<directory>']):
@@ -185,7 +189,7 @@ def main():
 
     # Everything's ok, run the main program
     with lock:
-        syslog.openlog('data_integrity_checker')
+        syslog.openlog('sdic')
 
         has_output = False
         if not args['<server>']:
