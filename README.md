@@ -7,9 +7,9 @@ A.K.A. __SQL Data Integrity Checker__
 
 ## One line purpose
 
-`sdic` executes all the SQL queries found in a folder and display its output.
+`sdic` executes all the SQL queries found in a folder and displays its output.
 
-## More detailled purpose
+## More detailed purpose
 
 In any RDBMS, you can set constraints to prevent the application to save the
 data in a way that's not consistent. E.g. if you want all your users to have an
