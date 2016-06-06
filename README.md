@@ -1,9 +1,9 @@
 # sdic
 
-__A.K.A. SQL Data Integrity Checker__
+A.K.A. __SQL Data Integrity Checker__
 
 [![CircleCI](https://circleci.com/gh/percolate/sdic.svg?style=svg)](https://circleci.com/gh/percolate/sdic)
-[![codecov](https://codecov.io/gh/percolate/sdic/branch/master/graph/badge.svg)](https://codecov.io/gh/percolate/sdic
+[![codecov](https://codecov.io/gh/percolate/sdic/branch/master/graph/badge.svg)](https://codecov.io/gh/percolate/sdic)
 
 ## One line purpose
 
@@ -78,6 +78,7 @@ crontab. We like to have it run daily, so we can fix any bug generating bad
 data before it becomes a real problem.
 
 Example crontab:
+
 ```
 MAILTO="dba@acme.com"
 @daily sdic live
@@ -105,7 +106,7 @@ The script reads from a designated folder, whose path you pass as an argument.
 This folder should consist of the following:
 
 1. A `servers.ini` file, which contains the Database URLs (see the
-`example-environment` folder)
+    `example-environment` folder)
 1. A sub-folder, which contains the actual queries in a `.sql` file format
 
 ## Usage
