@@ -9,7 +9,9 @@ A.K.A. __SQL Data Integrity Checker__
 
 `sdic` executes all the SQL queries found in a folder and displays its output.
 
-## More detailed purpose
+## More detailed purpose: Soft Constraints
+
+### Usual Constraints
 
 In any RDBMS, you can set constraints to prevent the application to save the
 data in a way that's not consistent. E.g. if you want all your users to have an
@@ -24,12 +26,14 @@ But for more complex constraints that you'd like to set, it'd be either very
 expensinve to check on every write, or even impossible to write as a
 constraint.
 
+### Soft Constraints
+
 With `sdic`, you can write you complex constraints as simple queries, and have
 the database run them asynchronously at the occurrence you want.
 
 We call them "soft constraints".
 
-## Example
+#### Example
 
 Let's say that you have a `users` table, defined like this:
 
@@ -57,6 +61,8 @@ WHERE
     (firstname IS NOT NULL AND lastname IS NULL)
 LIMIT 10
 ;
+-- Could also be written as firstname IS NULL <> lastname IS NULL but this is
+-- for people to understand the use case.
 ```
 
 Put this file in `your-environment/your-server/enforce_fullname.sql`.
@@ -69,6 +75,16 @@ with your soft constraint.
 
 You can have as many soft constraints on as many servers and as many
 environments as you need.
+
+### Constraints that can be temporary violated
+
+Another use case is that there are times that certain business rules can be
+violated for short periods. For example, you may want every department to have
+a head, but also to allow the creation of a new department without or NULLing
+out that field when somebody quits.
+
+In those sorts of cases, a reporting tool like `sdic` is likely just what the
+doctor ordered.
 
 ## Install as a cron
 
