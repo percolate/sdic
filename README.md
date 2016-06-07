@@ -141,8 +141,13 @@ Select now();
 
 ## FAQ
 
-### Pretty sure that's what `CHECK` constraints are for.
+### Pretty sure that's what `CHECK` constraints are for
 
 Right but there are 2 main differences:
-- `CHECK` constraints are checked on every write, for expensive checks (e.g. one that require scanning a whole big table) it's not an option. The point here is to choose how often you run the checks, and to not have to run them on writes. For us it's once, nightly: That's when our servers are doing less.
+
+- `CHECK` constraints are checked on every write, for expensive checks (e.g.
+    one that require scanning a whole big table) it's not an option. The point
+    here is to choose how often you run the checks, and to not have to run them
+    on writes. For us it's once, nightly: That's when our servers are doing
+    less.
 - MySQL simply ignores the `CHECK` statement.
