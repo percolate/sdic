@@ -28,6 +28,7 @@ import syslog
 
 from sqlalchemy import create_engine
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from docopt import docopt
 from constants import VERSION
@@ -77,7 +78,13 @@ def launch_queries(directory, server):
             query = opened_file.read()
 
             start_time = time.time()
-            output = get_query_output(server, query)
+            try:
+                output = get_query_output(server, query)
+            except DBAPIError:
+                print "The following SQL query got interrupted:"
+                print query
+                print
+                continue
             query_time = round(time.time() - start_time, 3)
 
             syslog.syslog('{} successfully ran in {} sec.'.format(filename,
