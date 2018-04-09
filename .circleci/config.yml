@@ -1,0 +1,33 @@
+version: 2
+jobs:
+
+  mdl:
+    docker:
+      - image: rsrchboy/mdl
+    steps:
+      - checkout
+      - run: mdl .
+
+  flake8:
+    docker:
+      - image: python
+    steps:
+      - run: pip install flake8
+      - checkout
+      - run: flake8 .
+
+  codecov:
+    docker:
+      - image: python
+    steps:
+      - run: pip install codecov
+      - checkout
+      - run: covecov
+
+workflows:
+  version: 2
+  sdic:
+    jobs:
+      - mdl
+      - flake8
+      - codecov
