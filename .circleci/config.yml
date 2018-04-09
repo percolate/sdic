@@ -10,7 +10,7 @@ jobs:
 
   flake8:
     docker:
-      - image: python
+      - image: python:2.7
     steps:
       - run: pip install flake8
       - checkout
@@ -18,7 +18,7 @@ jobs:
 
   codecov:
     docker:
-      - image: python
+      - image: python:2.7
     steps:
       - run: pip install codecov
       - checkout
