@@ -13,7 +13,7 @@ setup(
     keywords='sdic sql mysql postgresql sqlalchemy data integrity constraints',
     license='GPLv3',
     packages=['sdic'],
-    install_requires=['docopt', 'prettytable'],
+    install_requires=['docopt', 'prettytable', 'lockfile'],
     entry_points={
         'console_scripts': [
             'sdic=sdic.main:main',
