@@ -16,18 +16,9 @@ jobs:
       - checkout
       - run: flake8 .
 
-  codecov:
-    docker:
-      - image: python:2.7
-    steps:
-      - run: pip install codecov
-      - checkout
-      - run: codecov
-
 workflows:
   version: 2
   sdic:
     jobs:
       - mdl
       - flake8
-      - codecov

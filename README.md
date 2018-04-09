@@ -3,7 +3,6 @@
 A.K.A. __SQL Data Integrity Checker__
 
 [![CircleCI](https://circleci.com/gh/percolate/sdic.svg?style=svg)](https://circleci.com/gh/percolate/sdic)
-[![codecov](https://codecov.io/gh/percolate/sdic/branch/master/graph/badge.svg)](https://codecov.io/gh/percolate/sdic)
 
 ## One line purpose
 
