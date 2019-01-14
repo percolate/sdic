@@ -89,12 +89,6 @@ doctor ordered.
 
 Run sdic from cron as often as you like, we like to have it run daily.
 
-Example crontab:
-
-```
-@daily sdic live
-```
-
 ## Monitoring
 
 sdic uses Python's [`logging`](https://docs.python.org/2.7/library/logging.html)
@@ -102,7 +96,7 @@ module to log any output in dot separated hierarchical fashion.
 
 Any general sdic message would look like this:
 
-```
+```console
 Jan 11 00:10:19 <sender> sdic.enforce_fullname: enforce_fullname.sql successfully ran in 0.029 sec
 ```
 
@@ -145,7 +139,7 @@ only run one of them, an optional `server` argument can be passed as well:
 
 If a query produces an output, it will look something like this:
 
-```
+```console
 -----===== /!\ INCOMING BAD DATA /!\ =====-----
 
 Server: big-database
