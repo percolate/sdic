@@ -21,10 +21,10 @@ from lockfile import FileLock
 import sys
 import os
 import fnmatch
+import logging
 import prettytable
 import ConfigParser
 import time
-import syslog
 
 from sqlalchemy import create_engine
 from sqlalchemy import text
@@ -33,13 +33,13 @@ from sqlalchemy.exc import DBAPIError
 from docopt import docopt
 from constants import VERSION
 
-CONFIG_SERVERS = 'servers.ini'
+CONFIG_SERVERS = "servers.ini"
+
+log = logging.getLogger("sdic")
 
 
-def error(message):
-    """Print an error message and exit the script"""
-    print "Error:", message
-    exit(1)
+class DuplicateColumnNames(Exception):
+    pass
 
 
 def get_query_files(directory):
@@ -52,7 +52,7 @@ def get_query_files(directory):
     files = []
 
     for found_file in os.listdir(directory):
-        if fnmatch.fnmatch(found_file, '*.sql'):
+        if fnmatch.fnmatch(found_file, "*.sql"):
             files.append(found_file)
 
     return files
@@ -67,44 +67,50 @@ def launch_queries(directory, server):
 
     Returns: Bool value of whether we get query output or not
     """
-    query_folder = os.path.join(directory, server['name'])
+    query_folder = os.path.join(directory, server["name"])
     files = get_query_files(query_folder)
     produced_output = False
 
     for filename in files:
-        query_filename = os.path.join(directory, server['name'], filename)
+        query_log = logging.getLogger("sdic.{}".format(filename[:3]))
+        query_filename = os.path.join(directory, server["name"], filename)
         output = None
-        with open(query_filename, 'r') as opened_file:
+        with open(query_filename, "r") as opened_file:
             query = opened_file.read()
 
             start_time = time.time()
             try:
                 output = get_query_output(server, query)
-            except DBAPIError:
-                print "The following SQL query got interrupted:"
-                print query
-                print
+            except DBAPIError as e:
+                query_log.exception(
+                    "The following SQL query got interrupted: {}".format(query)
+                )
                 continue
+            except DuplicateColumnNames as e:
+                query_log.exception(
+                    "Caught an error with PrettyTable while trying to format the output of: {}".format(
+                        query
+                    )
+                )
+
             query_time = round(time.time() - start_time, 3)
 
-            syslog.syslog('{} successfully ran in {} sec.'.format(filename,
-                                                                  query_time))
+            query_log.info(
+                "{} successfully ran in {} sec.".format(filename, query_time)
+            )
         if output:
             produced_output = True
 
             # Announce that this query has results
-            print "-----===== /!\ INCOMING BAD DATA /!\ =====-----"
-            print
-            print "Server: {}".format(server['name'])
-            print "File: {}".format(filename)
-            print
-            # Display the raw query
-            print "SQL Query:"
-            print query
-
-            # Display the results of the query
-            print output
-            print
+            query_log.error(
+                "-----===== /!\ INCOMING BAD DATA /!\ =====-----",
+                "\n",
+                "Server: {}".format(server["name"]),
+                "File: {}".format(filename),
+                "\n",
+                "SQL Query:\n{}".format(query),
+                output,
+            )
 
     return produced_output
 
@@ -120,7 +126,7 @@ def get_query_output(server, query):
     Returns:
         (str) or None
     """
-    db_url = server['db_url']
+    db_url = server["db_url"]
 
     # start sqlalchemy engine
     engine = create_engine(db_url)
@@ -135,14 +141,28 @@ def get_query_output(server, query):
         titles = []
         for desc in result.keys():
             titles.append(desc)
-        table = prettytable.PrettyTable(titles)
+
+        try:
+            table = prettytable.PrettyTable(titles)
+        except Exception as e:
+            # PrettyTable raises a generic Exception error for duplicate field names
+            # This is most likely because of a problem  with the query.
+            # This should propogate the error up to the query_log so that the developer
+            # can see it.
+            if e == "Field names must be unique!":
+                raise DuplicateColumnNames(
+                    "PrettyTable crashed while trying to format row names"
+                )
+            else:
+                log.exception("A different general exception from PrettyTable.", e)
+                return None
 
         # Fill the table
         for row in rows:
             arr = []
             for item in row:
                 if isinstance(item, str):
-                    item = unicode(item, 'utf8', 'ignore')
+                    item = unicode(item, "utf8", "ignore")
                 arr.append(item)
 
             table.add_row(arr)
@@ -163,11 +183,11 @@ def get_servers_from_config(directory):
     config = ConfigParser.RawConfigParser()
     config.read(os.path.join(directory, CONFIG_SERVERS))
 
-    valid_config_items = ['db_url']
+    valid_config_items = ["db_url"]
 
     servers = []
     for section in config.sections():
-        server = {'name': section}
+        server = {"name": section}
         for (item_name, item_value) in config.items(section):
             if item_name in valid_config_items:
                 server[item_name] = item_value
@@ -177,41 +197,31 @@ def get_servers_from_config(directory):
 
 
 def main():
-    args = docopt(__doc__,
-                  version="sdic {}".format(VERSION))
+    args = docopt(__doc__, version="sdic {}".format(VERSION))
 
     # Check that the given directory exists
-    if not isdir(args['<directory>']):
-        error("The folder {} does not exist".format(args['<directory>']))
+    if not isdir(args["<directory>"]):
+        raise IOError("The folder {} does not exist".format(args["<directory>"]))
 
     # Try to get the config of the servers we are gonna use
-    servers = get_servers_from_config(args['<directory>'])
+    servers = args["<server>"] or get_servers_from_config(args["<directory>"])
 
     # Check that we are not already running
     program_name = os.path.basename(sys.argv[0])
     lock = FileLock("/tmp/{}.lock".format(program_name))
     if lock.is_locked():
-        error("{} is already running. Delete {} if it's a mistake.".format(
-            program_name, lock.path))
+        raise RuntimeError(
+            "{} is already running. Delete {} if it's a mistake.".format(
+                program_name, lock.path
+            )
+        )
 
     # Everything's ok, run the main program
     with lock:
-        syslog.openlog('sdic')
-
         has_output = False
-        if not args['<server>']:
-            for server in servers:
-                if launch_queries(args['<directory>'], server):
-                    has_output = True
-        else:
-            for server in servers:
-                if server['name'] == args['<server>']:
-                    if launch_queries(args['<directory>'], server):
-                        has_output = True
-        if has_output:
-            return 1
-
-        syslog.closelog()
+        for server in servers:
+            if launch_queries(args["<directory>"], server):
+                return 1
 
 
 if __name__ == "__main__":
