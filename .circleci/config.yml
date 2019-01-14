@@ -6,7 +6,7 @@ jobs:
       - image: rsrchboy/mdl
     steps:
       - checkout
-      - run: mdl .
+      - run: mdl --style ./.circleci/.mdlrc .
 
   flake8:
     docker:
