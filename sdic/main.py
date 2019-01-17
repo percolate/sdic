@@ -11,20 +11,24 @@ in a directory, but want to only run one.
 See <https://github.com/percolate/sdic> for more info
 
 Usage:
-    sdic <directory> [<server>]
+    sdic [options] <directory> [<server> [--server_url=<url>]] [<query>]
 
 Options:
     -h --help   Show this screen.
+    --output_location=<syslog|stdout>  Where to send output [default: stdout]
+    --server_url=<url>                 Optionally pass the db_url for the server.
+
 """
-from os.path import isdir
-from lockfile import FileLock
+from os.path import isfile
 import sys
-import os
+from os import walk
 import fnmatch
 import logging
-import prettytable
-import ConfigParser
 import time
+
+import ConfigParser
+from lockfile import FileLock
+import prettytable
 
 from sqlalchemy import create_engine
 from sqlalchemy import text
@@ -42,6 +46,7 @@ class DuplicateColumnNames(Exception):
     pass
 
 
+# Deprecate
 def get_query_files(directory):
     """
     Get the list of filenames of SQL files found in the specified folder
@@ -52,8 +57,7 @@ def get_query_files(directory):
     files = []
 
     for found_file in os.listdir(directory):
-        if fnmatch.fnmatch(found_file, "*.sql"):
-            files.append(found_file)
+        files.append(found_file)
 
     return files
 
@@ -72,6 +76,7 @@ def launch_queries(directory, server):
     produced_output = False
 
     for filename in files:
+        # TODO use os.path.splitext
         query_log = logging.getLogger("sdic.{}".format(filename[:3]))
         query_filename = os.path.join(directory, server["name"], filename)
         output = None
@@ -199,15 +204,23 @@ def get_servers_from_config(directory):
 def main():
     args = docopt(__doc__, version="sdic {}".format(VERSION))
 
-    # Check that the given directory exists
+    # 1 if directory, then run on each file in the directory
     if not isdir(args["<directory>"]):
         raise IOError("The folder {} does not exist".format(args["<directory>"]))
 
-    # Try to get the config of the servers we are gonna use
-    servers = args["<server>"] or get_servers_from_config(args["<directory>"])
+    # create a closure here
+    launch_query = get_connections_from_config(
+        args["directory"], args["<server>"], args["--server_url"]
+    )
+    program_name = os.path.basename(sys.argv[0])
+
+    # TODO move this error into above function
+    if not server_config:
+        raise RuntimeError(
+            "{} cannot run without a server config file.".format(program_name)
+        )
 
     # Check that we are not already running
-    program_name = os.path.basename(sys.argv[0])
     lock = FileLock("/tmp/{}.lock".format(program_name))
     if lock.is_locked():
         raise RuntimeError(
@@ -218,10 +231,18 @@ def main():
 
     # Everything's ok, run the main program
     with lock:
-        has_output = False
-        for server in servers:
-            if launch_queries(args["<directory>"], server):
-                return 1
+
+        # Try to get the config of the servers we are gonna use
+        if args["<query>"]:
+            launch_query(servers[args["<server>"], args["<query>"])
+
+        else:
+            for root_dir, dirs, files in os.walk(args["<directory>"]):
+                server_name = os.path.basename(os.path.normpath(root_dir))
+
+                for found_files in files:
+                    if fnmatch.fnmatch(found_file, "*.sql"):
+                        launch_query(server_name, found_file)
 
 
 if __name__ == "__main__":
