@@ -41,12 +41,7 @@ CONFIG_SERVERS = "servers.ini"
 
 log = logging.getLogger("sdic")
 
-
-class DuplicateColumnNames(Exception):
-    pass
-
-
-def get_query_output(server, query):
+def format_query_result(result):
     """
     Launch a query and display the output in a pretty text table
 
@@ -57,34 +52,19 @@ def get_query_output(server, query):
     Returns:
         (str) or None
     """
-    db_url = server["db_url"]
-
-    # start sqlalchemy engine
-    result = conn.execute(text(query))
-    rows = result.fetchall()
-
     table = None
 
     if result.rowcount > 0:
         # Get the column titles
-        titles = []
-        for desc in result.keys():
-            titles.append(desc)
+        titles = result.keys()
 
         try:
             table = prettytable.PrettyTable(titles)
         except Exception as e:
             # PrettyTable raises a generic Exception error for duplicate field names
-            # This is most likely because of a problem  with the query.
-            # This should propogate the error up to the query_log so that the developer
-            # can see it.
-            if e == "Field names must be unique!":
-                raise DuplicateColumnNames(
-                    "PrettyTable crashed while trying to format row names"
-                )
-            else:
-                log.exception("A different general exception from PrettyTable.", e)
-                return None
+            # Duplicate field names are likely caused by the query.
+            log.exception("PrettyTable crashed while trying to format row names.", e)
+            return None
 
         # Fill the table
         for row in rows:
@@ -109,7 +89,7 @@ def get_servers_from_config(directory, server=None, server_url=None, output="std
     assert os.path.exists(directory, "The folder {} does not exist".format(directory))
 
     # TODO determine if this is necessary
-    assert output in ("stdout","syslog"), "Invalid value for --output_location"
+    assert output in ("stdout", "syslog"), "Invalid value for --output_location"
 
     servers = {}
 
@@ -123,7 +103,7 @@ def get_servers_from_config(directory, server=None, server_url=None, output="std
         valid_config_items = ["db_url"]
 
         for server_name in config.sections():
-            if not server or (server and server_name == server):
+            if not server or (server_name is server):
                 for (item_name, item_value) in config.items(section):
                     if item_name is "db_url":
                         engine = create_engine(db_url)
@@ -134,25 +114,25 @@ def get_servers_from_config(directory, server=None, server_url=None, output="std
     def launch_query(server_name, query_filename):
         """
         """
-        query_log = logging.getLogger("sdic.{}".format(query_filename))
+        query_log = logging.getLogger(
+            "sdic.{}".format(os.path.splitext(query_filename))
+        )
+        query_full_path = os.path.join(directory, server, query_filename)
         output = None
-        with open(query_filename, "r") as opened_file:
+
+        with open(query_full_path, "r") as opened_file:
             query = opened_file.read()
 
             start_time = time.time()
+
             try:
-                output = get_query_output(server, query)
+                result = servers[server_name].execute(query)
+                rows = result.fetchall()
             except DBAPIError as e:
                 query_log.exception(
                     "The following SQL query got interrupted: {}".format(query)
                 )
-                continue
-            except DuplicateColumnNames as e:
-                query_log.exception(
-                    "Caught an error with PrettyTable while trying to format the output of: {}".format(
-                        query
-                    )
-                )
+                return
 
             query_time = round(time.time() - start_time, 3)
 
@@ -160,17 +140,22 @@ def get_servers_from_config(directory, server=None, server_url=None, output="std
                 "{} successfully ran in {} sec.".format(filename, query_time)
             )
 
+            output = format_query_output(result)
+
         if output:
             # Announce that this query has results
-            query_log.error(
-                "-----===== /!\ INCOMING BAD DATA /!\ =====-----",
-                "\n",
-                "Server: {}".format(server["name"]),
-                "File: {}".format(filename),
-                "\n",
-                "SQL Query:\n{}".format(query),
-                output,
-            )
+            if output is "syslog":
+                query_log.error(output)
+            elif output is "stdout":
+                print(
+                    "-----===== /!\ INCOMING BAD DATA /!\ =====-----",
+                    "\n",
+                    "Server: {}".format(server_name),
+                    "File: {}".format(filename),
+                    "\n",
+                    "SQL Query:\n{}".format(query),
+                    output,
+                )
 
 
 def main():
@@ -194,18 +179,17 @@ def main():
 
     # Everything's ok, run the main program
     with lock:
-
         # Try to get the config of the servers we are gonna use
         if args["<query>"]:
             # TODO
             launch_query(servers[args["<server>"]], args["<query>"])
-
         else:
             for root_dir, dirs, files in os.walk(args["<directory>"]):
                 server_name = os.path.basename(os.path.normpath(root_dir))
-                for found_files in files:
-                    if fnmatch.fnmatch(found_file, "*.sql"):
-                        launch_query(server_name, found_file)
+                if not args["<server>"] or (args["<server>"] is server_name):
+                    for found_files in files:
+                        if fnmatch.fnmatch(found_file, "*.sql"):
+                            launch_query(server_name, found_file)
 
 
 if __name__ == "__main__":
