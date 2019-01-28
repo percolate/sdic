@@ -19,11 +19,11 @@ Options:
     --server_url=<url>                 Optionally pass the db_url for the server.
 
 """
-from os.path import isfile
 import sys
-from os import walk
 import fnmatch
 import logging
+from os import walk
+from os import path
 import time
 
 import ConfigParser
@@ -35,11 +35,13 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from docopt import docopt
-from constants import VERSION
+#from constants import VERSION
+VERSION = 1
 
 CONFIG_SERVERS = "servers.ini"
 
 log = logging.getLogger("sdic")
+
 
 def format_query_result(result):
     """
@@ -79,45 +81,67 @@ def format_query_result(result):
     return table
 
 
-def get_servers_from_config(directory, server=None, server_url=None, output="stdout"):
+def get_connections_from_config(
+    directory, server=None, server_url=None, output="stdout"
+):
     """
-    Get the configuration of all the servers in the config file
+    Returns a function for running queries on each database server. Establishes a
+    connection to each server as needed.
 
-    param directory string Folder containing the servers.ini file
-    return List of servers dictionnaries
+    Args:
+        directory (str): Folder containing the servers.ini file and queries.
+        server (str, optional): Database server name, should also be folder in
+            directory. Defaults to None.
+        server_url (str, optional): Database server URL. Defaults to None.
+        output (str, optional): Where to redirect output, only options are "stdout" and
+            "syslog". Defaults to "stdout."
+    Returns:
+        function: Will run a query on a corresponding server.
     """
-    assert os.path.exists(directory, "The folder {} does not exist".format(directory))
+    assert path.exists(directory), "The folder {} does not exist".format(directory)
 
     # TODO determine if this is necessary
     assert output in ("stdout", "syslog"), "Invalid value for --output_location"
 
     servers = {}
+    print servers
 
     if server_url:
         engine = create_engine(db_url)
-        servers[section] = engine.connect()
+        servers[server] = engine.connect()
     else:
         config = ConfigParser.RawConfigParser()
-        config.read(os.path.join(directory, CONFIG_SERVERS))
+        config.read(path.join(directory, CONFIG_SERVERS))
 
         valid_config_items = ["db_url"]
 
         for server_name in config.sections():
-            if not server or (server_name is server):
-                for (item_name, item_value) in config.items(section):
-                    if item_name is "db_url":
-                        engine = create_engine(db_url)
-                        servers[section] = engine.connect()
+            print servers
+            if not server or (server_name == server):
+                for (item_name, item_value) in config.items(server_name):
+                    print item_name
+                    print item_value
+
+                    if item_name == "db_url":
+                        engine = create_engine(item_value)
+                        servers[server_name] = engine.connect()
+                        print "done"
 
     assert servers, "Could not find any server URLs in the server.ini or --server_url."
 
     def launch_query(server_name, query_filename):
         """
+        Run query on specific server.
+
+        Args:
+            server_name (str): database server name.
+            query_filename (str): name of the file for running queries.
         """
         query_log = logging.getLogger(
-            "sdic.{}".format(os.path.splitext(query_filename))
+            "sdic.{}".format(path.splitext(query_filename))
         )
-        query_full_path = os.path.join(directory, server, query_filename)
+        print server, query_filename
+        query_full_path = path.join(directory, server_name, query_filename)
         output = None
 
         with open(query_full_path, "r") as opened_file:
@@ -126,6 +150,7 @@ def get_servers_from_config(directory, server=None, server_url=None, output="std
             start_time = time.time()
 
             try:
+                print "inside try"
                 result = servers[server_name].execute(query)
                 rows = result.fetchall()
             except DBAPIError as e:
@@ -137,10 +162,10 @@ def get_servers_from_config(directory, server=None, server_url=None, output="std
             query_time = round(time.time() - start_time, 3)
 
             query_log.info(
-                "{} successfully ran in {} sec.".format(filename, query_time)
+                "{} successfully ran in {} sec.".format(query_filename, query_time)
             )
 
-            output = format_query_output(result)
+            output = format_query_result(result)
 
         if output:
             # Announce that this query has results
@@ -156,6 +181,7 @@ def get_servers_from_config(directory, server=None, server_url=None, output="std
                     "SQL Query:\n{}".format(query),
                     output,
                 )
+    return launch_query
 
 
 def main():
@@ -164,9 +190,9 @@ def main():
     # 1 if directory, then run on each file in the directory
     # create a closure here
     launch_query = get_connections_from_config(
-        args["directory"], server=args["<server>"], server_url=args["--server_url"]
+        args["<directory>"], server=args["<server>"], server_url=args["--server_url"]
     )
-    program_name = os.path.basename(sys.argv[0])
+    program_name = path.basename(sys.argv[0])
 
     # Check that we are not already running
     lock = FileLock("/tmp/{}.lock".format(program_name))
@@ -182,12 +208,15 @@ def main():
         # Try to get the config of the servers we are gonna use
         if args["<query>"]:
             # TODO
-            launch_query(servers[args["<server>"]], args["<query>"])
+            print "query"
+            launch_query(args["<server>"], args["<query>"])
         else:
-            for root_dir, dirs, files in os.walk(args["<directory>"]):
-                server_name = os.path.basename(os.path.normpath(root_dir))
-                if not args["<server>"] or (args["<server>"] is server_name):
-                    for found_files in files:
+            for root_dir, dirs, files in walk(args["<directory>"]):
+                server_name = path.basename(path.normpath(root_dir))
+                print root_dir
+                print server_name
+                if not args["<server>"] or (args["<server>"] == server_name):
+                    for found_file in files:
                         if fnmatch.fnmatch(found_file, "*.sql"):
                             launch_query(server_name, found_file)
 
