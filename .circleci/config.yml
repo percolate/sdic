@@ -6,19 +6,18 @@ jobs:
       - image: rsrchboy/mdl
     steps:
       - checkout
-      - run: mdl .
+      - run: mdl --style ./.circleci/.mdlrc .
 
-  flake8:
+  black:
     docker:
-      - image: python:2.7
+      - image: 667005031541.dkr.ecr.us-west-1.amazonaws.com/black:18.9b0
     steps:
-      - run: pip install flake8
       - checkout
-      - run: flake8 .
+      - run: pyfmt
 
 workflows:
   version: 2
   sdic:
     jobs:
       - mdl
-      - flake8
+      - black

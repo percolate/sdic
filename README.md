@@ -21,7 +21,7 @@ This works for simple constraints:
 1. It's easy to implement
 1. It's cheap for the database to check on every change
 
-But for more complex constraints that you'd like to set, it'd be either very
+But for more complex conditions, it'd be either very
 expensinve to check on every write, or even impossible to write as a
 constraint.
 
@@ -87,21 +87,23 @@ doctor ordered.
 
 ## Install as a cron
 
-If you want to get an email every night to give you a list of all the soft
-constraints that have been broken during the last day, just add it to you
-crontab. We like to have it run daily, so we can fix any bug generating bad
-data before it becomes a real problem.
+Run sdic from cron as often as you like, we like to have it run daily.
 
-Example crontab:
+## Monitoring
 
+sdic uses Python's [`logging`](https://docs.python.org/2.7/library/logging.html)
+module to log any output in dot separated hierarchical fashion.
+
+Any general sdic message would look like this:
+
+```console
+Jan 11 00:10:19 <sender> sdic.enforce_fullname: enforce_fullname.sql successfully ran in 0.029 sec
 ```
-MAILTO="dba@acme.com"
-@daily sdic live
-```
 
-`dba@acme.com` is the email that will get the soft constraints broken every
-day. Make sure your local MTA is well configured on your system. You can test
-it by doing `date | mail -s test dba@acme.com`.
+In Papertrail `sdic.enforce_fullname` will be treated as a
+[program attribute](https://help.papertrailapp.com/kb/how-it-works/search-syntax/#attributes).
+And alert can be created with the search keyword `program:sdic.enforce_fullname`
+to trigger anytime the checker encounters a violated constraint.
 
 ## Databases supported
 
@@ -137,7 +139,7 @@ only run one of them, an optional `server` argument can be passed as well:
 
 If a query produces an output, it will look something like this:
 
-```
+```console
 -----===== /!\ INCOMING BAD DATA /!\ =====-----
 
 Server: big-database

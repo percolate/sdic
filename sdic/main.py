@@ -11,105 +11,39 @@ in a directory, but want to only run one.
 See <https://github.com/percolate/sdic> for more info
 
 Usage:
-    sdic <directory> [<server>]
+    sdic [options] <directory> [<server> [--server_url=<url>]] [<query>]
 
 Options:
     -h --help   Show this screen.
+    --output_location=<syslog|stdout>  Where to send output [default: stdout]
+    --server_url=<url>                 Optionally pass the db_url for the server.
+
 """
-from os.path import isdir
-from lockfile import FileLock
 import sys
-import os
 import fnmatch
-import prettytable
-import ConfigParser
+import logging
+from os import walk
+from os import path
 import time
-import syslog
+
+import ConfigParser
+from lockfile import FileLock
+import prettytable
 
 from sqlalchemy import create_engine
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from docopt import docopt
-from constants import VERSION
+#from constants import VERSION
+VERSION = 1
 
-CONFIG_SERVERS = 'servers.ini'
+CONFIG_SERVERS = "servers.ini"
 
-
-def error(message):
-    """Print an error message and exit the script"""
-    print "Error:", message
-    exit(1)
+log = logging.getLogger("sdic")
 
 
-def get_query_files(directory):
-    """
-    Get the list of filenames of SQL files found in the specified folder
-
-    Params: directory string
-    Returns: Array
-    """
-    files = []
-
-    for found_file in os.listdir(directory):
-        if fnmatch.fnmatch(found_file, '*.sql'):
-            files.append(found_file)
-
-    return files
-
-
-def launch_queries(directory, server):
-    """
-    Launch the queries found in the specified folder
-
-    Param directory string Folder containing the SQL files
-    Param server dict describing a server
-
-    Returns: Bool value of whether we get query output or not
-    """
-    query_folder = os.path.join(directory, server['name'])
-    files = get_query_files(query_folder)
-    produced_output = False
-
-    for filename in files:
-        query_filename = os.path.join(directory, server['name'], filename)
-        output = None
-        with open(query_filename, 'r') as opened_file:
-            query = opened_file.read()
-
-            start_time = time.time()
-            try:
-                output = get_query_output(server, query)
-            except DBAPIError:
-                print "The following SQL query got interrupted:"
-                print query
-                print
-                continue
-            query_time = round(time.time() - start_time, 3)
-
-            syslog.syslog('{} successfully ran in {} sec.'.format(filename,
-                                                                  query_time))
-        if output:
-            produced_output = True
-
-            # Announce that this query has results
-            print "-----===== /!\ INCOMING BAD DATA /!\ =====-----"
-            print
-            print "Server: {}".format(server['name'])
-            print "File: {}".format(filename)
-            print
-            # Display the raw query
-            print "SQL Query:"
-            print query
-
-            # Display the results of the query
-            print output
-            print
-
-    return produced_output
-
-
-def get_query_output(server, query):
+def format_query_result(result):
     """
     Launch a query and display the output in a pretty text table
 
@@ -120,98 +54,171 @@ def get_query_output(server, query):
     Returns:
         (str) or None
     """
-    db_url = server['db_url']
-
-    # start sqlalchemy engine
-    engine = create_engine(db_url)
-    conn = engine.connect()
-    result = conn.execute(text(query))
-    rows = result.fetchall()
-
     table = None
 
     if result.rowcount > 0:
         # Get the column titles
-        titles = []
-        for desc in result.keys():
-            titles.append(desc)
-        table = prettytable.PrettyTable(titles)
+        titles = result.keys()
+
+        try:
+            table = prettytable.PrettyTable(titles)
+        except Exception as e:
+            # PrettyTable raises a generic Exception error for duplicate field names
+            # Duplicate field names are likely caused by the query.
+            log.exception("PrettyTable crashed while trying to format row names.", e)
+            return None
 
         # Fill the table
         for row in rows:
             arr = []
             for item in row:
                 if isinstance(item, str):
-                    item = unicode(item, 'utf8', 'ignore')
+                    item = unicode(item, "utf8", "ignore")
                 arr.append(item)
 
             table.add_row(arr)
 
-    conn.close()
-    result.close()
-
     return table
 
 
-def get_servers_from_config(directory):
+def get_connections_from_config(
+    directory, server=None, server_url=None, output="stdout"
+):
     """
-    Get the configuration of all the servers in the config file
+    Returns a function for running queries on each database server. Establishes a
+    connection to each server as needed.
 
-    param directory string Folder containing the servers.ini file
-    return List of servers dictionnaries
+    Args:
+        directory (str): Folder containing the servers.ini file and queries.
+        server (str, optional): Database server name, should also be folder in
+            directory. Defaults to None.
+        server_url (str, optional): Database server URL. Defaults to None.
+        output (str, optional): Where to redirect output, only options are "stdout" and
+            "syslog". Defaults to "stdout."
+    Returns:
+        function: Will run a query on a corresponding server.
     """
-    config = ConfigParser.RawConfigParser()
-    config.read(os.path.join(directory, CONFIG_SERVERS))
+    assert path.exists(directory), "The folder {} does not exist".format(directory)
 
-    valid_config_items = ['db_url']
+    # TODO determine if this is necessary
+    assert output in ("stdout", "syslog"), "Invalid value for --output_location"
 
-    servers = []
-    for section in config.sections():
-        server = {'name': section}
-        for (item_name, item_value) in config.items(section):
-            if item_name in valid_config_items:
-                server[item_name] = item_value
-        servers.append(server)
+    servers = {}
+    print servers
 
-    return servers
+    if server_url:
+        engine = create_engine(db_url)
+        servers[server] = engine.connect()
+    else:
+        config = ConfigParser.RawConfigParser()
+        config.read(path.join(directory, CONFIG_SERVERS))
+
+        valid_config_items = ["db_url"]
+
+        for server_name in config.sections():
+            print servers
+            if not server or (server_name == server):
+                for (item_name, item_value) in config.items(server_name):
+                    print item_name
+                    print item_value
+
+                    if item_name == "db_url":
+                        engine = create_engine(item_value)
+                        servers[server_name] = engine.connect()
+                        print "done"
+
+    assert servers, "Could not find any server URLs in the server.ini or --server_url."
+
+    def launch_query(server_name, query_filename):
+        """
+        Run query on specific server.
+
+        Args:
+            server_name (str): database server name.
+            query_filename (str): name of the file for running queries.
+        """
+        query_log = logging.getLogger(
+            "sdic.{}".format(path.splitext(query_filename))
+        )
+        print server, query_filename
+        query_full_path = path.join(directory, server_name, query_filename)
+        output = None
+
+        with open(query_full_path, "r") as opened_file:
+            query = opened_file.read()
+
+            start_time = time.time()
+
+            try:
+                print "inside try"
+                result = servers[server_name].execute(query)
+                rows = result.fetchall()
+            except DBAPIError as e:
+                query_log.exception(
+                    "The following SQL query got interrupted: {}".format(query)
+                )
+                return
+
+            query_time = round(time.time() - start_time, 3)
+
+            query_log.info(
+                "{} successfully ran in {} sec.".format(query_filename, query_time)
+            )
+
+            output = format_query_result(result)
+
+        if output:
+            # Announce that this query has results
+            if output is "syslog":
+                query_log.error(output)
+            elif output is "stdout":
+                print(
+                    "-----===== /!\ INCOMING BAD DATA /!\ =====-----",
+                    "\n",
+                    "Server: {}".format(server_name),
+                    "File: {}".format(filename),
+                    "\n",
+                    "SQL Query:\n{}".format(query),
+                    output,
+                )
+    return launch_query
 
 
 def main():
-    args = docopt(__doc__,
-                  version="sdic {}".format(VERSION))
+    args = docopt(__doc__, version="sdic {}".format(VERSION))
 
-    # Check that the given directory exists
-    if not isdir(args['<directory>']):
-        error("The folder {} does not exist".format(args['<directory>']))
-
-    # Try to get the config of the servers we are gonna use
-    servers = get_servers_from_config(args['<directory>'])
+    # 1 if directory, then run on each file in the directory
+    # create a closure here
+    launch_query = get_connections_from_config(
+        args["<directory>"], server=args["<server>"], server_url=args["--server_url"]
+    )
+    program_name = path.basename(sys.argv[0])
 
     # Check that we are not already running
-    program_name = os.path.basename(sys.argv[0])
     lock = FileLock("/tmp/{}.lock".format(program_name))
     if lock.is_locked():
-        error("{} is already running. Delete {} if it's a mistake.".format(
-            program_name, lock.path))
+        raise RuntimeError(
+            "{} is already running. Delete {} if it's a mistake.".format(
+                program_name, lock.path
+            )
+        )
 
     # Everything's ok, run the main program
     with lock:
-        syslog.openlog('sdic')
-
-        has_output = False
-        if not args['<server>']:
-            for server in servers:
-                if launch_queries(args['<directory>'], server):
-                    has_output = True
+        # Try to get the config of the servers we are gonna use
+        if args["<query>"]:
+            # TODO
+            print "query"
+            launch_query(args["<server>"], args["<query>"])
         else:
-            for server in servers:
-                if server['name'] == args['<server>']:
-                    if launch_queries(args['<directory>'], server):
-                        has_output = True
-        if has_output:
-            return 1
-
-        syslog.closelog()
+            for root_dir, dirs, files in walk(args["<directory>"]):
+                server_name = path.basename(path.normpath(root_dir))
+                print root_dir
+                print server_name
+                if not args["<server>"] or (args["<server>"] == server_name):
+                    for found_file in files:
+                        if fnmatch.fnmatch(found_file, "*.sql"):
+                            launch_query(server_name, found_file)
 
 
 if __name__ == "__main__":
